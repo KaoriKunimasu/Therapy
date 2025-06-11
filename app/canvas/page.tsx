@@ -7,8 +7,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Eraser, Trash2, Download, Save, ArrowLeft, Loader2 } from "lucide-react"
+import { Eraser, Trash2, Download, Save, ArrowLeft } from "lucide-react"
 
 interface ChildProfile {
   id: string
@@ -27,19 +26,25 @@ export default function CanvasPage() {
   const [isDrawing, setIsDrawing] = useState(false)
   const [lastX, setLastX] = useState(0)
   const [lastY, setLastY] = useState(0)
-  const [analysis, setAnalysis] = useState("")
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const router = useRouter()
 
   const colors = [
-    "#4299E1", // Blue
-    "#48BB78", // Green
-    "#F6E05E", // Yellow
-    "#F56565", // Red
-    "#9F7AEA", // Purple
-    "#ED8936", // Orange
-    "#38B2AC", // Teal
-    "#FC8181", // Pink
+  "#4299E1", // Blue
+  "#48BB78", // Green
+  "#F6E05E", // Yellow
+  "#F56565", // Red
+  "#9F7AEA", // Purple
+  "#ED8936", // Orange
+  "#38B2AC", // Teal
+  "#FC8181", // Pink
+  "#63B3ED", // Sky Blue
+  "#B9FBC0", // Lime Green
+  "#FBB6CE", // Light Pink
+  "#A1887F", // Chocolate Brown
+  "#CBD5E0", // Light Gray
+  "#2B6CB0", // Dark Blue
+  "#C53030", // Deep Red
+  "#000000", // Black
   ]
 
   useEffect(() => {
@@ -75,7 +80,7 @@ export default function CanvasPage() {
     ctx.fillStyle = "white"
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // Initialize drawing properties
+    // Set up drawing properties
     ctx.lineJoin = "round"
     ctx.lineCap = "round"
     ctx.lineWidth = brushSize
@@ -109,15 +114,6 @@ export default function CanvasPage() {
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    // Set up drawing properties every time we start drawing
-    ctx.lineJoin = "round"
-    ctx.lineCap = "round"
-    ctx.lineWidth = brushSize
-    ctx.strokeStyle = isEraser ? "white" : activeColor
-
     setIsDrawing(true)
 
     let pos
@@ -140,12 +136,6 @@ export default function CanvasPage() {
 
     const ctx = canvas.getContext("2d")
     if (!ctx) return
-
-    // Ensure drawing properties are set correctly
-    ctx.lineJoin = "round"
-    ctx.lineCap = "round"
-    ctx.lineWidth = brushSize
-    ctx.strokeStyle = isEraser ? "white" : activeColor
 
     let pos
     if ("touches" in e) {
@@ -177,55 +167,11 @@ export default function CanvasPage() {
 
     ctx.fillStyle = "white"
     ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    // Clear any existing analysis
-    setAnalysis("")
   }
 
-  const saveDrawing = async () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    try {
-      setIsAnalyzing(true)
-
-      // Get the image data as base64
-      const imageData = canvas.toDataURL("image/png")
-
-      // Send to our API route
-      const response = await fetch("/api/analyze-drawing", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ imageData }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to analyze drawing")
-      }
-
-      const data = await response.json()
-      setAnalysis(data.analysis)
-
-      // Save the drawing to localStorage for the dashboard
-      const savedDrawings = JSON.parse(localStorage.getItem("savedDrawings") || "[]")
-      const newDrawing = {
-        id: Date.now().toString(),
-        date: new Date().toLocaleDateString(),
-        image: imageData,
-        childId: activeChild?.id,
-        analysis: data.analysis,
-      }
-
-      savedDrawings.push(newDrawing)
-      localStorage.setItem("savedDrawings", JSON.stringify(savedDrawings))
-    } catch (error) {
-      console.error("Error analyzing drawing:", error)
-      setAnalysis("Sorry, there was an error analyzing your drawing. Please try again.")
-    } finally {
-      setIsAnalyzing(false)
-    }
+  const saveDrawing = () => {
+    // In a real app, you would send the image data to a server
+    alert("Drawing saved!")
   }
 
   const downloadDrawing = () => {
@@ -333,19 +279,9 @@ export default function CanvasPage() {
               variant="outline"
               className="w-full justify-start gap-2 text-base h-12 border-green-200 text-green-600 hover:bg-green-50"
               onClick={saveDrawing}
-              disabled={isAnalyzing}
             >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Save className="h-5 w-5" />
-                  Save & Analyze
-                </>
-              )}
+              <Save className="h-5 w-5" />
+              Save Drawing
             </Button>
 
             <Button
@@ -381,18 +317,6 @@ export default function CanvasPage() {
               onTouchEnd={endDrawing}
             />
           </div>
-
-          {/* Analysis Section - Only shown when there's analysis */}
-          {analysis && (
-            <Card className="bg-white shadow-md">
-              <CardHeader className="bg-yellow-100 rounded-t-lg">
-                <CardTitle className="text-xl text-yellow-800">Drawing Analysis</CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="whitespace-pre-line text-gray-700">{analysis}</div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </div>
