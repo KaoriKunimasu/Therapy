@@ -333,7 +333,7 @@ export default function CanvasPage() {
 
       console.log("Adding sticker at position:", x, y)
 
-      // Temporarily disable drawing mode
+      // Disable drawing mode to allow object interaction
       fabricCanvas.isDrawingMode = false
 
       // Create sticker as text with emoji
@@ -342,21 +342,23 @@ export default function CanvasPage() {
         top: y - 20,
         fontSize: 40,
         selectable: true,
+        evented: true,
         moveCursor: "move",
         hoverCursor: "move",
+        hasControls: true,
+        hasBorders: true,
+        cornerColor: "#4299E1",
+        cornerSize: 12,
+        transparentCorners: false,
+        borderColor: "#4299E1",
+        borderScaleFactor: 2,
       })
 
       fabricCanvas.add(stickerObject)
       fabricCanvas.setActiveObject(stickerObject)
       fabricCanvas.renderAll()
 
-      console.log("Sticker added successfully")
-
-      // Re-enable drawing mode after a delay
-      setTimeout(() => {
-        fabricCanvas.isDrawingMode = true
-        fabricCanvas.selection = false
-      }, 1000)
+      console.log("Sticker added successfully via drag")
     } catch (error) {
       console.error("Error adding sticker:", error)
     } finally {
@@ -400,32 +402,51 @@ export default function CanvasPage() {
     try {
       const { Text } = await import("fabric")
 
-      // Temporarily disable drawing mode
+      // Disable drawing mode to allow object interaction
       fabricCanvas.isDrawingMode = false
 
       // Add sticker at center of canvas
       const stickerObject = new Text(sticker.emoji, {
-        left: 400,
-        top: 300,
+        left: 350,
+        top: 250,
         fontSize: 40,
         selectable: true,
+        evented: true,
         moveCursor: "move",
         hoverCursor: "move",
+        hasControls: true,
+        hasBorders: true,
+        cornerColor: "#4299E1",
+        cornerSize: 12,
+        transparentCorners: false,
+        borderColor: "#4299E1",
+        borderScaleFactor: 2,
       })
 
       fabricCanvas.add(stickerObject)
       fabricCanvas.setActiveObject(stickerObject)
       fabricCanvas.renderAll()
 
-      console.log("Sticker added via click")
+      console.log("Sticker added via click - should be movable")
 
-      // Re-enable drawing mode after a delay
-      setTimeout(() => {
-        fabricCanvas.isDrawingMode = true
-        fabricCanvas.selection = false
-      }, 1000)
+      // Don't automatically re-enable drawing mode - let user interact with sticker first
     } catch (error) {
       console.error("Error adding sticker via click:", error)
+    }
+  }
+
+  const toggleDrawingMode = () => {
+    const fabricCanvas = fabricCanvasRef.current
+    if (!fabricCanvas) return
+
+    fabricCanvas.isDrawingMode = !fabricCanvas.isDrawingMode
+
+    if (fabricCanvas.isDrawingMode) {
+      fabricCanvas.selection = false
+      console.log("Drawing mode enabled")
+    } else {
+      fabricCanvas.selection = true
+      console.log("Selection mode enabled - you can now move stickers")
     }
   }
 
@@ -509,6 +530,14 @@ export default function CanvasPage() {
                   >
                     <Eraser className="h-5 w-5" />
                     Eraser
+                  </Button>
+                  <Button
+                    variant={fabricCanvasRef.current?.isDrawingMode === false ? "default" : "outline"}
+                    className="w-full justify-start gap-2 text-base h-12"
+                    onClick={toggleDrawingMode}
+                  >
+                    <Star className="h-5 w-5" />
+                    {fabricCanvasRef.current?.isDrawingMode === false ? "Selection Mode" : "Move Stickers"}
                   </Button>
 
                   <Button
@@ -637,6 +666,7 @@ export default function CanvasPage() {
                 <li>• Use the color palette and brush size to customize your drawing</li>
                 <li>• Switch to the Stickers tab to add fun elements to your artwork</li>
                 <li>• Drag stickers onto the canvas OR click them to add at center</li>
+                <li>• Click "Move Stickers" to switch to selection mode and move placed stickers</li>
                 <li>• Save your drawing when you're finished to add it to your gallery</li>
               </ul>
             </CardContent>
