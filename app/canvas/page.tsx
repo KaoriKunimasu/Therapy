@@ -25,6 +25,7 @@ interface Sticker {
   icon: React.ReactNode
   earned: boolean
   category: string
+  emoji: string // Add emoji for easier rendering
 }
 
 export default function CanvasPage() {
@@ -37,6 +38,7 @@ export default function CanvasPage() {
   const fabricCanvasRef = useRef<any>(null)
   const router = useRouter()
   const [isDragOver, setIsDragOver] = useState(false)
+  const [draggedSticker, setDraggedSticker] = useState<Sticker | null>(null)
 
   // Expanded color palette with 16 colors
   const colors = [
@@ -58,22 +60,45 @@ export default function CanvasPage() {
     "#6B7280", // Gray
   ]
 
-  // Sample stickers - in a real app, these would be loaded from a database
+  // Sample stickers with emojis for easier rendering
   const stickers: Sticker[] = [
     {
       id: "1",
       name: "Gold Star",
       icon: <Star className="w-8 h-8 text-yellow-500" />,
+      emoji: "⭐",
       earned: true,
       category: "achievement",
     },
-    { id: "2", name: "Heart", icon: <Heart className="w-8 h-8 text-red-500" />, earned: true, category: "emotion" },
-    { id: "3", name: "Smiley", icon: <Smile className="w-8 h-8 text-yellow-600" />, earned: true, category: "emotion" },
-    { id: "4", name: "Sun", icon: <Sun className="w-8 h-8 text-orange-500" />, earned: false, category: "nature" },
+    {
+      id: "2",
+      name: "Heart",
+      icon: <Heart className="w-8 h-8 text-red-500" />,
+      emoji: "❤️",
+      earned: true,
+      category: "emotion",
+    },
+    {
+      id: "3",
+      name: "Smiley",
+      icon: <Smile className="w-8 h-8 text-yellow-600" />,
+      emoji: "😊",
+      earned: true,
+      category: "emotion",
+    },
+    {
+      id: "4",
+      name: "Sun",
+      icon: <Sun className="w-8 h-8 text-orange-500" />,
+      emoji: "☀️",
+      earned: true, // Changed to true for testing
+      category: "nature",
+    },
     {
       id: "5",
       name: "Silver Star",
       icon: <Star className="w-8 h-8 text-gray-400" />,
+      emoji: "🌟",
       earned: true,
       category: "achievement",
     },
@@ -81,7 +106,8 @@ export default function CanvasPage() {
       id: "6",
       name: "Purple Heart",
       icon: <Heart className="w-8 h-8 text-purple-500" />,
-      earned: false,
+      emoji: "💜",
+      earned: true, // Changed to true for testing
       category: "emotion",
     },
   ]
@@ -109,16 +135,15 @@ export default function CanvasPage() {
 
     let cleanup = () => {}
 
-    // Dynamically import fabric.js - CORRECT v6.7.0 IMPORT METHOD
+    // Dynamically import fabric.js
     const initFabric = async () => {
       try {
-        // In Fabric v6.7.0, we need to use the named exports directly
         const { Canvas, PencilBrush } = await import("fabric")
 
         const canvas = canvasRef.current
         if (!canvas) return
 
-        // Create canvas instance with named Canvas export
+        // Create canvas instance
         const fabricCanvas = new Canvas(canvas, {
           width: 800,
           height: 600,
@@ -128,7 +153,7 @@ export default function CanvasPage() {
 
         fabricCanvasRef.current = fabricCanvas
 
-        // Set brush using named PencilBrush export
+        // Set brush
         fabricCanvas.freeDrawingBrush = new PencilBrush(fabricCanvas)
         fabricCanvas.freeDrawingBrush.width = brushSize
         fabricCanvas.freeDrawingBrush.color = activeColor
@@ -140,6 +165,8 @@ export default function CanvasPage() {
         cleanup = () => {
           fabricCanvas.dispose()
         }
+
+        console.log("Fabric.js canvas initialized successfully")
       } catch (err) {
         console.error("Failed to initialize Fabric.js:", err)
       }
@@ -208,9 +235,9 @@ export default function CanvasPage() {
         image: dataURL,
         childId: activeChild.id,
         childName: activeChild.name,
-        emotion: "creativity", // Default emotion - in real app this would be analyzed
+        emotion: "creativity",
         emotionColor: "bg-purple-100 text-purple-700",
-        canvasData: JSON.stringify(fabricCanvas.toJSON()), // Save canvas state for editing later
+        canvasData: JSON.stringify(fabricCanvas.toJSON()),
       }
 
       // Add to saved drawings
@@ -221,9 +248,6 @@ export default function CanvasPage() {
 
       console.log("Drawing saved successfully:", newDrawing)
       alert("Drawing saved successfully! You can view it in your dashboard.")
-
-      // Optional: Navigate back to dashboard to see the saved drawing
-      // router.push("/dashboard")
     } catch (error) {
       console.error("Error saving drawing:", error)
       alert("Sorry, there was an error saving your drawing. Please try again.")
@@ -252,7 +276,6 @@ export default function CanvasPage() {
     const fabricCanvas = fabricCanvasRef.current
     if (!fabricCanvas) return
 
-    // Ensure drawing mode stays enabled
     fabricCanvas.isDrawingMode = true
   }
 
@@ -260,36 +283,47 @@ export default function CanvasPage() {
     router.push("/dashboard")
   }
 
+  // Simplified sticker drag start
   const handleStickerDragStart = (e: React.DragEvent, sticker: Sticker) => {
+    console.log("Drag start:", sticker.name)
+
     if (!sticker.earned) {
       e.preventDefault()
       return
     }
 
-    e.dataTransfer.setData("sticker", JSON.stringify(sticker))
+    setDraggedSticker(sticker)
     e.dataTransfer.effectAllowed = "copy"
 
-    // Add visual feedback
-    const dragImage = e.currentTarget.cloneNode(true) as HTMLElement
-    dragImage.style.transform = "rotate(5deg)"
-    dragImage.style.opacity = "0.8"
-    e.dataTransfer.setDragImage(dragImage, 25, 25)
+    // Create a simple drag image
+    const dragElement = document.createElement("div")
+    dragElement.innerHTML = sticker.emoji
+    dragElement.style.fontSize = "32px"
+    dragElement.style.position = "absolute"
+    dragElement.style.top = "-1000px"
+    document.body.appendChild(dragElement)
 
-    console.log("Started dragging sticker:", sticker.name)
+    e.dataTransfer.setDragImage(dragElement, 16, 16)
+
+    // Clean up after drag
+    setTimeout(() => {
+      document.body.removeChild(dragElement)
+    }, 0)
   }
 
+  // Simplified canvas drop handler
   const handleCanvasDrop = async (e: React.DragEvent) => {
     e.preventDefault()
-    const fabricCanvas = fabricCanvasRef.current
-    if (!fabricCanvas) return
+    console.log("Drop event triggered")
 
-    const stickerData = e.dataTransfer.getData("sticker")
-    if (!stickerData) return
+    const fabricCanvas = fabricCanvasRef.current
+    if (!fabricCanvas || !draggedSticker) {
+      console.log("No canvas or dragged sticker")
+      return
+    }
 
     try {
-      // Dynamically load fabric to create the text object
       const { Text } = await import("fabric")
-      const sticker = JSON.parse(stickerData)
       const canvasRect = canvasRef.current?.getBoundingClientRect()
       if (!canvasRect) return
 
@@ -297,52 +331,37 @@ export default function CanvasPage() {
       const x = e.clientX - canvasRect.left
       const y = e.clientY - canvasRect.top
 
-      // Temporarily disable drawing mode to add objects
-      const wasDrawingMode = fabricCanvas.isDrawingMode
+      console.log("Adding sticker at position:", x, y)
+
+      // Temporarily disable drawing mode
       fabricCanvas.isDrawingMode = false
 
-      // Create a text object as a placeholder for the sticker
-      const stickerText = new Text(sticker.name, {
-        left: x - 30, // Center the text
-        top: y - 10,
-        fontSize: 24,
-        fill: getColorForSticker(sticker.category),
-        backgroundColor: "rgba(255, 255, 255, 0.9)",
-        padding: 8,
-        cornerColor: "#4299E1",
-        cornerSize: 12,
-        transparentCorners: false,
-        borderColor: "#4299E1",
-        borderScaleFactor: 2,
-        hasRotatingPoint: true,
+      // Create sticker as text with emoji
+      const stickerObject = new Text(draggedSticker.emoji, {
+        left: x - 20,
+        top: y - 20,
+        fontSize: 40,
+        selectable: true,
+        moveCursor: "move",
+        hoverCursor: "move",
       })
 
-      fabricCanvas.add(stickerText)
-      fabricCanvas.setActiveObject(stickerText)
+      fabricCanvas.add(stickerObject)
+      fabricCanvas.setActiveObject(stickerObject)
       fabricCanvas.renderAll()
 
-      // Re-enable drawing mode after a short delay
-      setTimeout(() => {
-        fabricCanvas.isDrawingMode = wasDrawingMode
-      }, 100)
+      console.log("Sticker added successfully")
 
-      console.log("Sticker added:", sticker.name)
+      // Re-enable drawing mode after a delay
+      setTimeout(() => {
+        fabricCanvas.isDrawingMode = true
+        fabricCanvas.selection = false
+      }, 1000)
     } catch (error) {
       console.error("Error adding sticker:", error)
-    }
-  }
-
-  // Helper function to get colors for different sticker categories
-  const getColorForSticker = (category: string) => {
-    switch (category) {
-      case "achievement":
-        return "#F59E0B" // Amber
-      case "emotion":
-        return "#EF4444" // Red
-      case "nature":
-        return "#10B981" // Emerald
-      default:
-        return "#6366F1" // Indigo
+    } finally {
+      setDraggedSticker(null)
+      setIsDragOver(false)
     }
   }
 
@@ -354,13 +373,59 @@ export default function CanvasPage() {
   const handleCanvasDragEnter = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragOver(true)
+    console.log("Drag enter canvas")
   }
 
   const handleCanvasDragLeave = (e: React.DragEvent) => {
     e.preventDefault()
-    // Only set to false if we're actually leaving the canvas area
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-      setIsDragOver(false)
+    // Check if we're actually leaving the canvas
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (rect) {
+      const x = e.clientX
+      const y = e.clientY
+      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+        setIsDragOver(false)
+        console.log("Drag leave canvas")
+      }
+    }
+  }
+
+  // Add a simple click handler for testing
+  const handleStickerClick = async (sticker: Sticker) => {
+    if (!sticker.earned) return
+
+    const fabricCanvas = fabricCanvasRef.current
+    if (!fabricCanvas) return
+
+    try {
+      const { Text } = await import("fabric")
+
+      // Temporarily disable drawing mode
+      fabricCanvas.isDrawingMode = false
+
+      // Add sticker at center of canvas
+      const stickerObject = new Text(sticker.emoji, {
+        left: 400,
+        top: 300,
+        fontSize: 40,
+        selectable: true,
+        moveCursor: "move",
+        hoverCursor: "move",
+      })
+
+      fabricCanvas.add(stickerObject)
+      fabricCanvas.setActiveObject(stickerObject)
+      fabricCanvas.renderAll()
+
+      console.log("Sticker added via click")
+
+      // Re-enable drawing mode after a delay
+      setTimeout(() => {
+        fabricCanvas.isDrawingMode = true
+        fabricCanvas.selection = false
+      }, 1000)
+    } catch (error) {
+      console.error("Error adding sticker via click:", error)
     }
   }
 
@@ -401,7 +466,7 @@ export default function CanvasPage() {
               <div>
                 <h2 className="text-xl font-semibold text-blue-700 mb-4">Drawing Tools</h2>
 
-                {/* Color Palette - 16 colors in 4x4 grid */}
+                {/* Color Palette */}
                 <div className="mb-6">
                   <h3 className="text-sm font-medium text-gray-600 mb-2">Colors</h3>
                   <div className="grid grid-cols-4 gap-2">
@@ -490,10 +555,10 @@ export default function CanvasPage() {
               <Card className="bg-gradient-to-br from-purple-100 to-pink-100">
                 <CardHeader>
                   <CardTitle className="text-lg text-purple-800">Sticker Book</CardTitle>
-                  <p className="text-sm text-purple-600">Drag stickers to your canvas!</p>
+                  <p className="text-sm text-purple-600">Drag stickers to canvas or click to add!</p>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     {stickers.map((sticker) => (
                       <div
                         key={sticker.id}
@@ -501,15 +566,16 @@ export default function CanvasPage() {
                           relative p-3 rounded-lg border-2 transition-all cursor-pointer
                           ${
                             sticker.earned
-                              ? "bg-white border-yellow-300 hover:border-yellow-400 hover:shadow-md"
+                              ? "bg-white border-yellow-300 hover:border-yellow-400 hover:shadow-md hover:scale-105"
                               : "bg-gray-100 border-gray-300 opacity-50 cursor-not-allowed"
                           }
                         `}
                         draggable={sticker.earned}
-                        onDragStart={(e) => sticker.earned && handleStickerDragStart(e, sticker)}
+                        onDragStart={(e) => handleStickerDragStart(e, sticker)}
+                        onClick={() => handleStickerClick(sticker)}
                       >
                         <div className="flex flex-col items-center gap-1">
-                          {sticker.icon}
+                          <div className="text-2xl">{sticker.emoji}</div>
                           <span className="text-xs text-center font-medium">{sticker.name}</span>
                         </div>
                         {sticker.earned && (
@@ -521,7 +587,7 @@ export default function CanvasPage() {
                     ))}
                   </div>
                   <div className="mt-4 text-xs text-purple-600 text-center">
-                    Complete drawings to earn more stickers!
+                    {draggedSticker ? `Dragging ${draggedSticker.name}...` : "Complete drawings to earn more stickers!"}
                   </div>
                 </CardContent>
               </Card>
@@ -532,25 +598,32 @@ export default function CanvasPage() {
         {/* Main Canvas Area */}
         <div className="flex-1 flex flex-col gap-6">
           <div className="relative bg-white rounded-2xl shadow-md overflow-hidden flex justify-center p-4">
-            <canvas
-              ref={canvasRef}
-              width={800}
-              height={600}
-              className={`border-2 cursor-crosshair transition-colors ${
-                isDragOver ? "border-blue-400 bg-blue-50" : "border-gray-200"
-              }`}
-              style={{
-                width: "800px",
-                height: "600px",
-                display: "block",
-                maxWidth: "100%",
-                maxHeight: "100%",
-              }}
-              onDrop={handleCanvasDrop}
-              onDragOver={handleCanvasDragOver}
-              onDragEnter={handleCanvasDragEnter}
-              onDragLeave={handleCanvasDragLeave}
-            />
+            <div className="relative">
+              <canvas
+                ref={canvasRef}
+                width={800}
+                height={600}
+                className={`border-2 cursor-crosshair transition-all duration-200 ${
+                  isDragOver ? "border-blue-400 bg-blue-50 scale-[1.02]" : "border-gray-200"
+                }`}
+                style={{
+                  width: "800px",
+                  height: "600px",
+                  display: "block",
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                }}
+                onDrop={handleCanvasDrop}
+                onDragOver={handleCanvasDragOver}
+                onDragEnter={handleCanvasDragEnter}
+                onDragLeave={handleCanvasDragLeave}
+              />
+              {isDragOver && (
+                <div className="absolute inset-0 bg-blue-100 bg-opacity-50 flex items-center justify-center pointer-events-none">
+                  <div className="text-blue-600 text-xl font-semibold">Drop sticker here!</div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Canvas Instructions */}
@@ -563,7 +636,7 @@ export default function CanvasPage() {
               <ul className="text-sm text-blue-600 mt-2 space-y-1">
                 <li>• Use the color palette and brush size to customize your drawing</li>
                 <li>• Switch to the Stickers tab to add fun elements to your artwork</li>
-                <li>• Drag earned stickers directly onto your canvas</li>
+                <li>• Drag stickers onto the canvas OR click them to add at center</li>
                 <li>• Save your drawing when you're finished to add it to your gallery</li>
               </ul>
             </CardContent>
