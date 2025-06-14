@@ -29,22 +29,14 @@ export default function CanvasPage() {
   const router = useRouter()
 
   const colors = [
-  "#4299E1", // Blue
-  "#48BB78", // Green
-  "#F6E05E", // Yellow
-  "#F56565", // Red
-  "#9F7AEA", // Purple
-  "#ED8936", // Orange
-  "#38B2AC", // Teal
-  "#FC8181", // Pink
-  "#63B3ED", // Sky Blue
-  "#B9FBC0", // Lime Green
-  "#FBB6CE", // Light Pink
-  "#A1887F", // Chocolate Brown
-  "#CBD5E0", // Light Gray
-  "#2B6CB0", // Dark Blue
-  "#C53030", // Deep Red
-  "#000000", // Black
+    "#4299E1", // Blue
+    "#48BB78", // Green
+    "#F6E05E", // Yellow
+    "#F56565", // Red
+    "#9F7AEA", // Purple
+    "#ED8936", // Orange
+    "#38B2AC", // Teal
+    "#FC8181", // Pink
   ]
 
   useEffect(() => {
