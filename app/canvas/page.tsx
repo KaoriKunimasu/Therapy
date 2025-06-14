@@ -10,7 +10,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Eraser, Trash2, Download, Save, ArrowLeft, Star, Heart, Smile, Sun, Loader2 } from "lucide-react"
-import { fabric } from "fabric"
 
 interface ChildProfile {
   id: string
@@ -35,8 +34,9 @@ export default function CanvasPage() {
   const [activeChild, setActiveChild] = useState<ChildProfile | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const fabricCanvasRef = useRef<fabric.Canvas | null>(null)
+  const fabricCanvasRef = useRef<any>(null)
   const router = useRouter()
+  const [isDragOver, setIsDragOver] = useState(false)
 
   // Expanded color palette with 16 colors
   const colors = [
@@ -105,39 +105,62 @@ export default function CanvasPage() {
   }, [router])
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    if (typeof window === "undefined") return // Skip during SSR
 
-    // Initialize Fabric.js canvas
-    const fabricCanvas = new fabric.Canvas(canvas, {
-      width: 800,
-      height: 600,
-      backgroundColor: "white",
-    })
+    let cleanup = () => {}
 
-    fabricCanvasRef.current = fabricCanvas
+    // Dynamically import fabric.js - CORRECT v6.7.0 IMPORT METHOD
+    const initFabric = async () => {
+      try {
+        // In Fabric v6.7.0, we need to use the named exports directly
+        const { Canvas, PencilBrush } = await import("fabric")
 
-    // Set initial drawing mode
-    fabricCanvas.isDrawingMode = true
-    fabricCanvas.freeDrawingBrush.width = brushSize
-    fabricCanvas.freeDrawingBrush.color = activeColor
+        const canvas = canvasRef.current
+        if (!canvas) return
 
-    // Cleanup function
+        // Create canvas instance with named Canvas export
+        const fabricCanvas = new Canvas(canvas, {
+          width: 800,
+          height: 600,
+          backgroundColor: "white",
+          isDrawingMode: true,
+        })
+
+        fabricCanvasRef.current = fabricCanvas
+
+        // Set brush using named PencilBrush export
+        fabricCanvas.freeDrawingBrush = new PencilBrush(fabricCanvas)
+        fabricCanvas.freeDrawingBrush.width = brushSize
+        fabricCanvas.freeDrawingBrush.color = activeColor
+
+        // Set up canvas options
+        fabricCanvas.selection = false
+        fabricCanvas.skipTargetFind = false
+
+        cleanup = () => {
+          fabricCanvas.dispose()
+        }
+      } catch (err) {
+        console.error("Failed to initialize Fabric.js:", err)
+      }
+    }
+
+    initFabric()
+
     return () => {
-      fabricCanvas.dispose()
+      cleanup()
     }
   }, [])
 
-  // Update brush properties when they change
+  // Separate useEffect for updating brush properties
   useEffect(() => {
     const fabricCanvas = fabricCanvasRef.current
-    if (!fabricCanvas) return
+    if (!fabricCanvas || !fabricCanvas.freeDrawingBrush) return
 
     if (isEraser) {
-      fabricCanvas.freeDrawingBrush = new fabric.EraserBrush(fabricCanvas)
       fabricCanvas.freeDrawingBrush.width = brushSize
+      fabricCanvas.freeDrawingBrush.color = "white"
     } else {
-      fabricCanvas.freeDrawingBrush = new fabric.PencilBrush(fabricCanvas)
       fabricCanvas.freeDrawingBrush.width = brushSize
       fabricCanvas.freeDrawingBrush.color = activeColor
     }
@@ -226,6 +249,11 @@ export default function CanvasPage() {
 
   const toggleEraser = () => {
     setIsEraser(!isEraser)
+    const fabricCanvas = fabricCanvasRef.current
+    if (!fabricCanvas) return
+
+    // Ensure drawing mode stays enabled
+    fabricCanvas.isDrawingMode = true
   }
 
   const handleBackToDashboard = () => {
@@ -233,10 +261,24 @@ export default function CanvasPage() {
   }
 
   const handleStickerDragStart = (e: React.DragEvent, sticker: Sticker) => {
+    if (!sticker.earned) {
+      e.preventDefault()
+      return
+    }
+
     e.dataTransfer.setData("sticker", JSON.stringify(sticker))
+    e.dataTransfer.effectAllowed = "copy"
+
+    // Add visual feedback
+    const dragImage = e.currentTarget.cloneNode(true) as HTMLElement
+    dragImage.style.transform = "rotate(5deg)"
+    dragImage.style.opacity = "0.8"
+    e.dataTransfer.setDragImage(dragImage, 25, 25)
+
+    console.log("Started dragging sticker:", sticker.name)
   }
 
-  const handleCanvasDrop = (e: React.DragEvent) => {
+  const handleCanvasDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     const fabricCanvas = fabricCanvasRef.current
     if (!fabricCanvas) return
@@ -244,35 +286,82 @@ export default function CanvasPage() {
     const stickerData = e.dataTransfer.getData("sticker")
     if (!stickerData) return
 
-    const sticker = JSON.parse(stickerData)
-    const canvasRect = canvasRef.current?.getBoundingClientRect()
-    if (!canvasRect) return
+    try {
+      // Dynamically load fabric to create the text object
+      const { Text } = await import("fabric")
+      const sticker = JSON.parse(stickerData)
+      const canvasRect = canvasRef.current?.getBoundingClientRect()
+      if (!canvasRect) return
 
-    // Calculate position relative to canvas
-    const x = e.clientX - canvasRect.left
-    const y = e.clientY - canvasRect.top
+      // Calculate position relative to canvas
+      const x = e.clientX - canvasRect.left
+      const y = e.clientY - canvasRect.top
 
-    // Create a text object as a placeholder for the sticker
-    // In a real app, you'd use actual sticker images
-    const stickerText = new fabric.Text(sticker.name, {
-      left: x,
-      top: y,
-      fontSize: 20,
-      fill: "#333",
-      backgroundColor: "rgba(255, 255, 255, 0.8)",
-      padding: 5,
-      cornerColor: "#4299E1",
-      cornerSize: 8,
-      transparentCorners: false,
-    })
+      // Temporarily disable drawing mode to add objects
+      const wasDrawingMode = fabricCanvas.isDrawingMode
+      fabricCanvas.isDrawingMode = false
 
-    fabricCanvas.add(stickerText)
-    fabricCanvas.setActiveObject(stickerText)
-    fabricCanvas.renderAll()
+      // Create a text object as a placeholder for the sticker
+      const stickerText = new Text(sticker.name, {
+        left: x - 30, // Center the text
+        top: y - 10,
+        fontSize: 24,
+        fill: getColorForSticker(sticker.category),
+        backgroundColor: "rgba(255, 255, 255, 0.9)",
+        padding: 8,
+        cornerColor: "#4299E1",
+        cornerSize: 12,
+        transparentCorners: false,
+        borderColor: "#4299E1",
+        borderScaleFactor: 2,
+        hasRotatingPoint: true,
+      })
+
+      fabricCanvas.add(stickerText)
+      fabricCanvas.setActiveObject(stickerText)
+      fabricCanvas.renderAll()
+
+      // Re-enable drawing mode after a short delay
+      setTimeout(() => {
+        fabricCanvas.isDrawingMode = wasDrawingMode
+      }, 100)
+
+      console.log("Sticker added:", sticker.name)
+    } catch (error) {
+      console.error("Error adding sticker:", error)
+    }
+  }
+
+  // Helper function to get colors for different sticker categories
+  const getColorForSticker = (category: string) => {
+    switch (category) {
+      case "achievement":
+        return "#F59E0B" // Amber
+      case "emotion":
+        return "#EF4444" // Red
+      case "nature":
+        return "#10B981" // Emerald
+      default:
+        return "#6366F1" // Indigo
+    }
   }
 
   const handleCanvasDragOver = (e: React.DragEvent) => {
     e.preventDefault()
+    e.dataTransfer.dropEffect = "copy"
+  }
+
+  const handleCanvasDragEnter = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(true)
+  }
+
+  const handleCanvasDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    // Only set to false if we're actually leaving the canvas area
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false)
+    }
   }
 
   if (!activeChild) {
@@ -445,13 +534,22 @@ export default function CanvasPage() {
           <div className="relative bg-white rounded-2xl shadow-md overflow-hidden flex justify-center p-4">
             <canvas
               ref={canvasRef}
-              className="border border-gray-200 cursor-crosshair"
+              width={800}
+              height={600}
+              className={`border-2 cursor-crosshair transition-colors ${
+                isDragOver ? "border-blue-400 bg-blue-50" : "border-gray-200"
+              }`}
               style={{
+                width: "800px",
+                height: "600px",
+                display: "block",
                 maxWidth: "100%",
-                height: "auto",
+                maxHeight: "100%",
               }}
               onDrop={handleCanvasDrop}
               onDragOver={handleCanvasDragOver}
+              onDragEnter={handleCanvasDragEnter}
+              onDragLeave={handleCanvasDragLeave}
             />
           </div>
 
