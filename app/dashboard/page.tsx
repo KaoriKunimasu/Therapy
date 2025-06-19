@@ -255,13 +255,12 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <Tabs defaultValue="emotion" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
+                  <TabsList className="grid w-full grid-cols-1">
                     <TabsTrigger value="emotion">Emotion Analysis</TabsTrigger>
-                    <TabsTrigger value="progress">Progress Timeline</TabsTrigger>
-                    <TabsTrigger value="notes">Therapist Notes</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="emotion" className="space-y-6 mt-6">
+                    {/* Keep all the existing emotion analysis content */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Emotion Summary */}
                       <div className="space-y-4">
@@ -365,20 +364,6 @@ export default function DashboardPage() {
                         emotional state. The use of vibrant colors suggests positive engagement with the artistic
                         process.
                       </p>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="progress" className="mt-6">
-                    <div className="text-center py-8 text-gray-500">
-                      <p className="text-lg font-medium mb-2">Progress Timeline</p>
-                      <p className="text-sm">Track emotional progress over time (Coming Soon)</p>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="notes" className="mt-6">
-                    <div className="text-center py-8 text-gray-500">
-                      <p className="text-lg font-medium mb-2">Therapist Notes</p>
-                      <p className="text-sm">Professional insights and recommendations (Coming Soon)</p>
                     </div>
                   </TabsContent>
                 </Tabs>
